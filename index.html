@@ -156,6 +156,11 @@ textarea { width: 100%; min-height: 110px; font: 500 12px var(--mono); border: 1
 @media (max-width: 560px) { .brandbar .tag.long { display: none; } .foot { flex-direction: column; align-items: flex-start; } .foot .right { justify-content: flex-start; text-align: left; } }
 [hidden] { display: none !important; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+.form textarea, textarea.fb { border: 1.5px solid var(--line); border-radius: 6px; background: var(--surface2); padding: 10px 12px; width: 100%; min-height: 110px; font: inherit; color: inherit; resize: vertical; }
+.chkrow { display: flex; gap: 10px; align-items: flex-start; margin: 10px 0; font-size: 15px; }
+.chkrow input { width: 22px; height: 22px; margin-top: 2px; flex: none; }
+.tkline { margin: 14px 0 6px; }
 </style>
 </head>
 <body>
@@ -176,6 +181,8 @@ textarea { width: 100%; min-height: 110px; font: 500 12px var(--mono); border: 1
       <button class="btn" id="bFlavour" type="button">New flavour</button>
       <button class="btn" id="bSetup" type="button">Run setup</button>
       <button class="btn" id="bLog" type="button">Audit log</button>
+      <button class="btn" id="bTeach" type="button">Teach</button>
+      <button class="btn" id="bFeed" type="button">Feedback</button>
       <button class="btn" id="bTools" type="button">Tools</button>
     </div>
   </header>
@@ -204,6 +211,8 @@ textarea { width: 100%; min-height: 110px; font: 500 12px var(--mono); border: 1
 
   <main id="vSetup" hidden></main>
   <main id="vLog" hidden></main>
+  <main id="vTeach" hidden></main>
+  <main id="vFeed" hidden></main>
   <main id="vTools" hidden></main>
 
   <details class="how" id="how">
@@ -226,7 +235,7 @@ textarea { width: 100%; min-height: 110px; font: 500 12px var(--mono); border: 1
         <li>Hash-chained audit log with photos, kept in this browser, exportable</li></ul></div>
       <div><h5>Not in this proof of concept</h5><ul>
         <li>SharePoint sync and the operator list from M365 (data stays on this tablet)</li>
-        <li>Proven accuracy: the reader learns the printer's font from examples, so expect RETAKEs until it has seen enough of your cans. Use Tools to teach it.</li></ul></div>
+        <li>Proven accuracy: the reader learns the printer's font from examples, so expect RETAKEs until it has seen enough of your cans. Use Teach to show it your cans.</li></ul></div>
     </div>
   </details>
   <footer class="foot">
@@ -770,7 +779,7 @@ const Match = (() => {
   const EX = {}; // learned examples: label -> [grid]
   function addExample(ch, grid, dedupe) {
     const list = (EX[ch] = EX[ch] || []);
-    if (dedupe) { if (list.length >= 14) return false; for (const t of list) { let s = 0; for (let i = 0; i < t.length; i++) s += t[i] * grid[i]; if (s > 0.96) return false; } }
+    if (dedupe) { if (list.length >= 24) return false; for (const t of list) { let s = 0; for (let i = 0; i < t.length; i++) s += t[i] * grid[i]; if (s > 0.96) return false; } }
     list.push(grid); return true;
   }
   function clearExamples() { for (const k of Object.keys(EX)) delete EX[k]; }
@@ -1057,7 +1066,7 @@ const Pipeline = (() => {
   const tick = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 20)));
 
   /* ---------- settings and state ---------- */
-  const DEFAULTS = { auto: true, stillMs: 2000, motion: 6, res: 1080, strictness: "normal", crop: 100, disc: 47, station: "Tablet-1", operators: ["Saleem", "Jason"], maxAge: 120, fast: false };
+  const DEFAULTS = { auto: true, stillMs: 2000, motion: 6, res: 1080, strictness: "normal", crop: 100, disc: 47, station: "Tablet-1", operators: ["Saleem", "Jason"], maxAge: 120, fast: false, inbox: "" };
   const S = {
     set: { ...DEFAULTS },
     cust: customers.find((c) => c.name === "Black Fly"),
@@ -1074,19 +1083,19 @@ const Pipeline = (() => {
 
   /* ---------- storage: IndexedDB, with memory fallback ---------- */
   const DB = {
-    db: null, mem: { log: new Map(), photos: new Map(), kv: new Map() },
+    db: null, mem: { log: new Map(), photos: new Map(), kv: new Map(), teach: new Map(), fb: new Map() },
     async open() {
       try {
         this.db = await new Promise((res, rej) => {
-          const r = indexedDB.open("cancodecheck", 1);
-          r.onupgradeneeded = () => { const d = r.result; d.createObjectStore("log", { keyPath: "seq" }); d.createObjectStore("photos", { keyPath: "seq" }); d.createObjectStore("kv"); };
+          const r = indexedDB.open("cancodecheck", 2);
+          r.onupgradeneeded = () => { const d = r.result; for (const [n, k] of [["log", "seq"], ["photos", "seq"], ["teach", "id"], ["fb", "id"]]) if (!d.objectStoreNames.contains(n)) d.createObjectStore(n, { keyPath: k }); if (!d.objectStoreNames.contains("kv")) d.createObjectStore("kv"); };
           r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); r.onblocked = () => rej(new Error("blocked"));
         });
         S.persist = true;
       } catch (e) { this.db = null; S.persist = false; }
     },
     tx(store, mode, fn) { return new Promise((res, rej) => { const t = this.db.transaction(store, mode), st = t.objectStore(store), r = fn(st); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error); }); },
-    async put(store, val, key) { if (!this.db) { this.mem[store].set(key ?? val.seq, val); return; } try { await this.tx(store, "readwrite", (s) => (key !== undefined ? s.put(val, key) : s.put(val))); } catch (e) { this.mem[store].set(key ?? val.seq, val); S.persist = false; } },
+    async put(store, val, key) { if (!this.db) { this.mem[store].set(key ?? val.seq ?? val.id, val); return; } try { await this.tx(store, "readwrite", (s) => (key !== undefined ? s.put(val, key) : s.put(val))); } catch (e) { this.mem[store].set(key ?? val.seq ?? val.id, val); S.persist = false; } },
     async get(store, key) { if (!this.db) return this.mem[store].get(key); try { return await this.tx(store, "readonly", (s) => s.get(key)); } catch (e) { return this.mem[store].get(key); } },
     async all(store) { if (!this.db) return [...this.mem[store].values()]; try { return (await this.tx(store, "readonly", (s) => s.getAll())) || []; } catch (e) { return [...this.mem[store].values()]; } },
     async clear(store) { if (!this.db) { this.mem[store].clear(); return; } try { await this.tx(store, "readwrite", (s) => s.clear()); } catch (e) {} },
@@ -1492,6 +1501,9 @@ const Pipeline = (() => {
       <p class="hint">“Remember the empty nest”: with nothing in front of the camera, tap it once. Auto-capture then ignores a hand or an empty nest instead of logging a RETAKE.</p>
       <h3>What the reader has learned</h3><p class="hint" id="tExN"></p>
       <div class="btns"><button class="btn" id="tExOut" type="button">Download examples</button><label class="btn" style="display:inline-grid;place-items:center">Load examples<input id="tExIn" type="file" accept=".json,application/json" hidden></label><button class="btn" id="tExClr" type="button">Back to the built-in examples</button></div>
+      <h3>Review inbox</h3><p class="hint">Where taught prints and feedback are sent automatically for review. Leave empty to keep everything on this tablet and use “Save review pack” instead.</p>
+      <label class="label" for="tInbox">Inbox web address</label><input type="text" id="tInbox" autocomplete="off" spellcheck="false" placeholder="https://…" style="width:100%;border:1.5px solid var(--line);border-radius:6px;background:var(--surface2);padding:10px 12px;min-height:46px">
+      <div class="btns" style="margin-top:10px"><button class="btn" id="tInboxTest" type="button">Send a test</button><button class="btn" id="tInboxNow" type="button">Send what is waiting</button><button class="btn" id="tPack" type="button">Save review pack</button></div><p class="hint" id="tInboxSt"></p>
       <h3>Rules self-test</h3><p class="hint">Runs 50 simulated cans per case through the checking rules (not the camera). A bad can must never come back PASS.</p><button class="btn" id="tSelf" type="button">Self-test this customer</button><div id="tSelfOut"></div>
       <h3>Wipe</h3><button class="btn fail" id="tWipe" type="button">Erase the whole log on this tablet</button><p class="hint">Test runs only. Download the zip first.</p>
     </div>`;
@@ -1508,6 +1520,12 @@ const Pipeline = (() => {
     $("tExClr").onclick = async () => { Match.importExamples(BUNDLED_EXAMPLES, true); await saveExamples(); toast("Built-in examples restored"); renderTools(); };
     $("tTry").onchange = (e) => { const f = e.target.files[0]; if (f) tryFile(f, false); e.target.value = ""; };
     $("tSelf").onclick = selftest;
+    $("tInbox").value = S.set.inbox || ""; $("tInbox").onchange = () => { S.set.inbox = $("tInbox").value.trim(); saveSettings(); inboxStatus().then((t) => ($("tInboxSt").textContent = t)); flush(); };
+    inboxStatus().then((t) => { const e = $("tInboxSt"); if (e) e.textContent = t; });
+    $("tInboxTest").onclick = async () => { const u = inboxUrl(); if (!u) { toast("Paste the inbox web address first."); return; } const how = await post(u, JSON.stringify({ app: APPV, kind: "test", id: "test" + Date.now().toString(36), at: new Date().toISOString(), station: S.set.station, operator: S.operator || "" })); $("tInboxSt").textContent = how === "confirmed" ? "The inbox answered. It is working." : how === "unconfirmed" ? "The test was sent but the inbox didn't answer in a way this page can read. Check the inbox to see whether it arrived." : "Couldn't reach the inbox. Check the web address and the connection."; };
+    $("tInboxNow").onclick = async () => { const n = await flush(); toast(n ? `Sent ${n} item${n === 1 ? "" : "s"}` : "Nothing was sent"); $("tInboxSt").textContent = await inboxStatus(); };
+    $("tPack").onclick = savePack;
+
     $("tWipe").onclick = async () => { if (!confirm("Erase every scan and photo stored on this tablet?")) return; await DB.clear("log"); await DB.clear("photos"); S.log = []; S.seq = 0; S.last = null; S.lastRead = null; S.lastPassAt = null; S.changeover = true; toast("Log erased"); renderTools(); paintHeader(); };
     const learn = $("tLearn");
     if (learn) learn.onclick = async () => {
@@ -1607,6 +1625,27 @@ const Pipeline = (() => {
         <dt>FAIL</dt><dd>Something is wrong with the code. <b>STOP THE LINE</b> and tell the supervisor.</dd>
         <dt>RETAKE</dt><dd>The reader was not sure. Reseat the can, reduce glare and capture again. After 3 RETAKEs in a row the page asks you to check the can by eye and tap <b>Code is correct</b> or <b>Code is wrong</b>; that is logged too.</dd>
       </dl>` },
+    teach: { title: "Teach", html: `
+      <p><b>What it does:</b> shows the reader what a manufacturer's printed code really looks like, so it reads that print style better next time. Do this on a few cans from each manufacturer.</p>
+      <dl>
+        <dt>Can manufacturer</dt><dd>Type who made the can, or pick one you used before. It groups the photos for review.</dd>
+        <dt>Take a photo</dt><dd>Opens the tablet's own camera app. Hold it 15–20 cm from the print, tap the print so it focuses, then take the picture.</dd>
+        <dt>Choose from gallery</dt><dd>Use a picture already saved on the tablet or in Files.</dd>
+        <dt>Use the last scan</dt><dd>Teaches from the can you just scanned on the main screen, handy after a RETAKE.</dd>
+        <dt>Turn left / right, middle part</dt><dd>Turn the picture until the lines run left to right and read the right way up with the code in the middle.</dd>
+        <dt>Type what is printed</dt><dd>Type each line exactly as it is printed. Do not copy what the reader shows, because it may be wrong. Leave a line empty to skip it.</dd>
+        <dt>Save photo and teach the reader</dt><dd>Keeps the photo, adds a picture of every character as an example of the letter or digit you typed, then reads the photo again so you can see whether it now matches.</dd>
+        <dt>Save review pack</dt><dd>Bundles the photos, what was typed and the reader's examples into one zip, for review.</dd>
+      </dl>` },
+    feed: { title: "Feedback", html: `
+      <p><b>What it does:</b> a place to record what you find while using the station. Notes are kept with the time, who wrote them and, if you tick it, the photo of the last scan, then reviewed before any update is made.</p>
+      <dl>
+        <dt>What is it about</dt><dd>Pick the closest match. “A bad can was passed” is the most important to report.</dd>
+        <dt>Who is writing</dt><dd>Tap your name from the list.</dd>
+        <dt>What happened</dt><dd>Write it in your own words. For a misread, say what the can really says.</dd>
+        <dt>Attach the last scan</dt><dd>Adds the photo and reads of the most recent scan so the problem can be seen.</dd>
+        <dt>Status</dt><dd>WAITING means it will be sent when the tablet is online. THIS TABLET means no review inbox is set, so use Save review pack or Share review pack.</dd>
+      </dl>` },
     flavour: { title: "New flavour", html: `
       <p><b>What it does:</b> tell the tablet that a different flavour or product is starting. The amber banner <b>NEW RUN / FLAVOUR. Check the first can.</b> appears and stays until a can passes.</p>
       <dl>
@@ -1653,6 +1692,7 @@ const Pipeline = (() => {
         <dt>Station name</dt><dd>Shown in the header and recorded with every scan.</dd>
         <dt>Remember the empty nest</dt><dd>With nothing in front of the camera, tap it once. Auto-capture then ignores an empty nest or a passing hand instead of logging a RETAKE.</dd>
         <dt>What the reader has learned</dt><dd>Shows how many character examples are in use. Download them to keep, load them onto another tablet, or go back to the built-in set.</dd>
+        <dt>Review inbox</dt><dd>The web address where taught prints and feedback are sent for review. Send a test checks it. Save review pack makes a zip of everything instead.</dd>
         <dt>Rules self-test</dt><dd>Runs 50 simulated cans per case through the checking rules, not the camera. A bad can must never come back PASS.</dd>
         <dt>Erase the whole log</dt><dd>Test runs only. Deletes every scan and photo on this tablet, so download the zip first.</dd>
       </dl>` }
@@ -1663,13 +1703,215 @@ const Pipeline = (() => {
     c.innerHTML = `<div class="ctx"><h4>You are on: ${esc(h.title)}</h4>${h.html}</div>`;
   }
 
+  /* ---------- review inbox: what the tablets collect (taught prints, feedback) and how it gets back for review ---------- */
+  const APPV = "web-poc 2026-10-09";
+  const INBOX_DEFAULT = ""; // set once a review inbox exists; the Tools screen can also override it per tablet
+  const inboxUrl = () => ((S.set.inbox || INBOX_DEFAULT) + "").trim();
+  const cleanTxt = (s) => (s || "").toUpperCase().replace(/\s+/g, " ").trim();
+  const when = (iso) => { try { return new Date(iso).toLocaleString([], { hour12: false, month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }); } catch (e) { return iso; } };
+  const toBlob = (c, q) => new Promise((r) => c.toBlob((b) => r(b), "image/jpeg", q));
+  async function shrink(blob, max, q) {
+    if (!blob) return null;
+    try {
+      const url = URL.createObjectURL(blob), img = await new Promise((r, j) => { const i = new Image(); i.onload = () => r(i); i.onerror = j; i.src = url; });
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement("canvas"); c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); return c.toDataURL("image/jpeg", q).split(",")[1];
+    } catch (e) { return null; }
+  }
+  async function payloadOf(kind, r) {
+    const base = { app: APPV, kind, id: r.id, at: r.at, station: r.station, operator: r.operator };
+    if (kind === "teach") return { ...base, maker: r.maker, note: r.note, lines: r.lines, readA: r.readA, readB: r.readB, rot: r.rot, crop: r.crop, learned: r.learned, photo_jpg_base64: await shrink(r.photo, 1400, 0.8) };
+    return { ...base, type: r.type, typeLabel: r.typeLabel, text: r.text, customer: r.customer, line: r.line, last: r.last, photo_jpg_base64: r.photo ? await shrink(r.photo, 900, 0.75) : null };
+  }
+  async function post(url, body) {
+    const opt = { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body };
+    try { const r = await fetch(url, opt); if (!r.ok) return null; try { const j = await r.json(); if (j && j.ok === false) return null; } catch (e) {} return "confirmed"; }
+    catch (e) { try { await fetch(url, { ...opt, mode: "no-cors" }); return "unconfirmed"; } catch (e2) { return null; } }
+  }
+  async function waiting() { const t = (await DB.all("teach")).filter((x) => !x.sent), f = (await DB.all("fb")).filter((x) => !x.sent); return { t, f, n: t.length + f.length }; }
+  /** send everything not yet sent, oldest first; stops at the first failure and tries again later */
+  async function flush() {
+    const url = inboxUrl(); if (!url || S.flushing) return 0;
+    S.flushing = true; let sent = 0;
+    try {
+      const w = await waiting();
+      const items = [...w.t.map((r) => ["teach", "teach", r]), ...w.f.map((r) => ["fb", "fb", r])].sort((a, b) => (a[2].at < b[2].at ? -1 : 1));
+      for (const [store, kind, r] of items) {
+        const how = await post(url, JSON.stringify(await payloadOf(kind, r)));
+        if (!how) break; r.sent = new Date().toISOString(); r.sentHow = how; await DB.put(store, r); sent++;
+      }
+    } finally { S.flushing = false; }
+    return sent;
+  }
+  const sentTag = (r) => (r.sent ? `<span class="tag-r PASS">${r.sentHow === "unconfirmed" ? "SENT?" : "SENT"}</span>` : `<span class="tag-r RETAKE">${inboxUrl() ? "WAITING" : "THIS TABLET"}</span>`);
+  const safeName = (s) => String(s || "x").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 40);
+  async function buildPack() {
+    const teach = (await DB.all("teach")).sort((a, b) => (a.at < b.at ? -1 : 1)), fb = (await DB.all("fb")).sort((a, b) => (a.at < b.at ? -1 : 1)), files = [];
+    files.push({ name: "README.txt", data: `Can Code Check review pack\r\nExported ${new Date().toISOString()} from ${S.set.station} (${APPV})\r\n\r\nfeedback.json + feedback/photos   what operators reported, with the last scan's photo when attached\r\nteach.json + teach/photos         prints photographed and typed in to teach the reader\r\nreader-examples.json              every character example the reader holds on this tablet\r\nscans.csv, log.jsonl, photos/     the audit log of scans\r\n` });
+    files.push({ name: "feedback.json", data: JSON.stringify(fb.map(({ photo, ...r }) => ({ ...r, photo_file: photo ? `feedback/photos/${r.id}.jpg` : null })), null, 1) });
+    for (const r of fb) if (r.photo) files.push({ name: `feedback/photos/${r.id}.jpg`, data: r.photo });
+    files.push({ name: "teach.json", data: JSON.stringify(teach.map(({ photo, ...r }) => ({ ...r, photo_file: photo ? `teach/photos/${safeName(r.maker)}_${r.id}.jpg` : null })), null, 1) });
+    for (const r of teach) if (r.photo) files.push({ name: `teach/photos/${safeName(r.maker)}_${r.id}.jpg`, data: r.photo });
+    files.push({ name: "reader-examples.json", data: JSON.stringify(Match.exportExamples()) });
+    files.push({ name: "scans.csv", data: csv() });
+    files.push({ name: "log.jsonl", data: S.log.map((e) => JSON.stringify({ body: e.body, prev: e.prev, hash: e.hash })).join("\n") });
+    for (const e of S.log) { const ph = await DB.get("photos", e.seq); if (ph && ph.blob && ph.blob.size) files.push({ name: "photos/" + imgName(e.body), data: ph.blob }); }
+    return makeZip(files);
+  }
+  const packName = () => `cancodecheck-review-${safeName(S.set.station)}-${new Date().toISOString().slice(0, 10)}.zip`;
+  async function savePack() { toast("Building the pack…", 2500); download(packName(), await buildPack()); toast("Review pack saved to Downloads"); }
+  async function sharePack() {
+    const blob = await buildPack(), file = new File([blob], packName(), { type: "application/zip" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: "Can Code Check review pack" }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+    download(packName(), blob); toast("This tablet can't share files from the page, so the pack was saved to Downloads.", 5000);
+  }
+  async function inboxStatus() {
+    const w = await waiting(), url = inboxUrl();
+    if (!url) return `No review inbox is set, so ${w.n ? w.n + " item" + (w.n === 1 ? " is" : "s are") : "everything is"} kept on this tablet only. Use “Save review pack” to send it.`;
+    return w.n ? `${w.n} item${w.n === 1 ? "" : "s"} waiting to send. They go automatically when the tablet is online.` : "Everything has been sent to the review inbox.";
+  }
+
+  /* ---------- teach: photograph a manufacturer's print, type what it says, the reader learns that print style ---------- */
+  const TK = { big: null, rot: 0, crop: 100, reads: null, busy: false, from: "", maker: "", note: "" };
+  function squareOf(src, crop) {
+    const w = src.width || src.naturalWidth, h = src.height || src.naturalHeight, side = Math.min(w, h) * (crop / 100), sx = (w - side) / 2, sy = (h - side) / 2, out = Math.min(1600, Math.round(side)), c = document.createElement("canvas");
+    c.width = c.height = out; c.getContext("2d").drawImage(src, sx, sy, side, side, 0, 0, out, out); return c;
+  }
+  async function teachRead() {
+    TK.busy = true; paintTeachWork(); await tick();
+    const base = Reader.fitTo(squareOf(TK.big, TK.crop), S.set.side || 800), c = Pipeline.rotate(base, TK.rot), [PA, PB] = Pipeline.params();
+    const cfg = Pipeline.STRICT[S.set.strictness] || Pipeline.STRICT.normal, disc = (S.set.disc || 47) / 100;
+    let A = null, B = null;
+    try { A = Pipeline.readOne(c, PA, profile(), cfg, disc); await tick(); B = Pipeline.readOne(c, PB, profile(), cfg, disc); } catch (e) { console.error(e); }
+    TK.reads = A && B ? { A, B, c } : null; TK.busy = false; paintTeachWork();
+  }
+  async function loadTeachPhoto(file, from) {
+    if (!file) return;
+    const url = URL.createObjectURL(file), img = await new Promise((r, j) => { const i = new Image(); i.onload = () => r(i); i.onerror = j; i.src = url; }).catch(() => null);
+    if (!img) { toast("Couldn't open that photo."); return; }
+    const k = Math.min(1, 2400 / Math.max(img.naturalWidth, img.naturalHeight)), big = document.createElement("canvas"); big.width = Math.round(img.naturalWidth * k); big.height = Math.round(img.naturalHeight * k);
+    big.getContext("2d").drawImage(img, 0, 0, big.width, big.height); URL.revokeObjectURL(url);
+    TK.big = big; TK.rot = 0; TK.crop = 100; TK.from = from; teachRead();
+  }
+  /** line the glyphs the reader cut up with the characters the person typed (a missed, merged or extra glyph just becomes a gap), then keep each paired glyph's picture as an example of the typed character */
+  function learnAligned(chars, truth) {
+    const t = truth.replace(/ /g, "").split(""), g = chars.filter((c) => c.ch !== " " && c.grid), m = g.length, n = t.length, GAP = 0.25;
+    const D = Array.from({ length: m + 1 }, () => new Float32Array(n + 1)), P = Array.from({ length: m + 1 }, () => new Uint8Array(n + 1));
+    for (let i = 1; i <= m; i++) { D[i][0] = -i * GAP; P[i][0] = 1; }
+    for (let j = 1; j <= n; j++) { D[0][j] = -j * GAP; P[0][j] = 2; }
+    for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) {
+      const sc = g[i - 1].sc ? g[i - 1].sc[t[j - 1]] : null, pair = D[i - 1][j - 1] + (sc == null ? -1 : sc - 0.45), sg = D[i - 1][j] - GAP, st = D[i][j - 1] - GAP;
+      if (pair >= sg && pair >= st) { D[i][j] = pair; P[i][j] = 0; } else if (sg >= st) { D[i][j] = sg; P[i][j] = 1; } else { D[i][j] = st; P[i][j] = 2; }
+    }
+    const pairs = []; let i = m, j = n;
+    while (i > 0 || j > 0) { const k = P[i][j]; if (i > 0 && j > 0 && k === 0) { pairs.push([i - 1, j - 1]); i--; j--; } else if (i > 0 && (j === 0 || k === 1)) i--; else j--; }
+    let learned = 0, used = 0;
+    for (const [gi, tj] of pairs) {
+      const c = g[gi], fit = c.sc ? c.sc[t[tj]] : 0; if (fit == null || fit < 0.3 || c.wr > 1.45) continue;
+      used++; if (Match.addExample(t[tj], c.grid, true)) learned++;
+    }
+    return { learned, used, read: m, typed: n, skipped: used < Math.ceil(n * 0.6) };
+  }
+  const readText = (b) => b.chars.map((c) => c.ch).join("").replace(/\s+/g, " ").trim();
+  function paintTeachWork() {
+    const el = $("tkWork"); if (!el) return;
+    if (!TK.big) { el.innerHTML = ""; return; }
+    if (TK.busy || !TK.reads) { el.innerHTML = `<h3>Reading the photo…</h3><p class="hint">${TK.busy ? "One moment." : "The reader couldn't make anything of this photo. Try another, or turn it."}</p>`; if (!TK.busy) el.innerHTML += `<div class="go"><button class="btn" id="tkCancel" type="button">Cancel</button></div>`; if ($("tkCancel")) $("tkCancel").onclick = () => { TK.big = null; TK.reads = null; paintTeachWork(); }; return; }
+    const A = TK.reads.A, nb = A.bands.length;
+    let h = `<h3>1 · Check the picture</h3><div class="row2"><div><canvas id="tkPrev" class="dbgimg" style="width:100%"></canvas></div><div>
+      <div class="go"><button class="btn" id="tkL" type="button">⟲ Turn left</button><button class="btn" id="tkR" type="button">⟳ Turn right</button></div>
+      <label class="label" style="margin-top:12px;display:block">Use the middle part of the picture, %</label><select id="tkCrop"><option value="100">100 (whole picture)</option><option value="85">85</option><option value="70">70</option><option value="55">55 (zoomed in)</option></select>
+      <p class="hint">Turn it until the printed lines run left to right and read the right way up, with the code in the middle. The reader only sees the middle part.</p></div></div>
+      <h3>2 · Type what is printed</h3>`;
+    if (!nb) h += `<p class="note bad">The reader found no printed lines in this picture. Turn it, zoom in with the % box, or take a closer, sharper photo.</p>`;
+    else h += `<p class="hint">Type each line exactly as printed on the can, as you see it with your own eyes. Leave a line empty to skip it. The reader found ${nb} line${nb === 1 ? "" : "s"}; the picture of each is below.</p>`;
+    A.bands.forEach((b, i) => { h += `<div class="tkline"><span class="label">Line ${i + 1} · the reader currently sees</span><div class="cellline">${lineCells(b) || "—"}</div>${b.pic ? `<img class="dbgimg" src="${b.pic}" alt="Characters of line ${i + 1}">` : ""}<input class="truthin" type="text" id="tkT${i}" placeholder="Type line ${i + 1} here" autocapitalize="characters" autocomplete="off" spellcheck="false"></div>`; });
+    h += `<div class="go"><button class="btn primary big" id="tkSave" type="button"${nb ? "" : " disabled"}>Save photo and teach the reader</button><button class="btn" id="tkCancel" type="button">Cancel</button></div><div id="tkOut" class="note"></div>`;
+    el.innerHTML = h;
+    const cv = $("tkPrev"), src = TK.reads.c; cv.width = src.width; cv.height = src.height; cv.getContext("2d").drawImage(src, 0, 0);
+    $("tkCrop").value = String(TK.crop); $("tkCrop").onchange = () => { TK.crop = +$("tkCrop").value; teachRead(); };
+    $("tkL").onclick = () => { TK.rot = (TK.rot + 270) % 360; teachRead(); }; $("tkR").onclick = () => { TK.rot = (TK.rot + 90) % 360; teachRead(); };
+    $("tkCancel").onclick = () => { TK.big = null; TK.reads = null; paintTeachWork(); };
+    if ($("tkSave")) $("tkSave").onclick = teachSave;
+  }
+  async function teachSave() {
+    const maker = $("tkMaker").value.trim(); TK.maker = maker; TK.note = $("tkNote").value.trim();
+    if (!maker) { toast("Type the can manufacturer first."); $("tkMaker").focus(); return; }
+    const { A, B } = TK.reads, truths = A.bands.map((b, i) => cleanTxt($(`tkT${i}`).value));
+    if (!truths.some(Boolean)) { toast("Type what is printed on at least one line."); return; }
+    const known = new Set(Object.keys(Match.FONT)), bad = [...new Set(truths.join("").replace(/ /g, "").split("").filter((ch) => !known.has(ch)))];
+    if (bad.length) { $("tkOut").className = "note bad"; $("tkOut").textContent = `The reader only knows ${[...known].sort().join(" ")}. Please change: ${bad.join(" ")}`; return; }
+    const out = $("tkOut"); out.className = "note"; out.textContent = "Learning…"; await tick();
+    let learned = 0; const notes = [];
+    for (const r of [A, B]) { if (r.bands.length !== A.bands.length) continue; r.bands.forEach((b, i) => { const t = truths[i]; if (!t) return; const L = learnAligned(b.chars, t); learned += L.learned; if (L.skipped) notes.push(`line ${i + 1}: only ${L.used} of the ${L.typed} characters you typed could be matched to what the reader cut out (it found ${L.read}), so the photo may be too blurry or the line too cramped`); }); }
+    await saveExamples();
+    const photo = await toBlob(TK.big, 0.9), now = new Date().toISOString();
+    const rec = { id: "t" + Date.now().toString(36), at: now, station: S.set.station, operator: S.operator || "", maker, note: TK.note, lines: truths, readA: A.bands.map(readText), readB: B.bands.map(readText), rot: TK.rot, crop: TK.crop, learned, photo, sent: null };
+    await DB.put("teach", rec);
+    await teachRead();   // read the same picture again with what it just learned
+    const A2 = TK.reads && TK.reads.A, ok = [];
+    if (A2) truths.forEach((t, i) => { if (!t) return; const got = A2.bands[i] ? readText(A2.bands[i]) : ""; ok.push(got.replace(/ /g, "") === t.replace(/ /g, "") ? `line ${i + 1} now reads correctly` : `line ${i + 1} still reads “${got || "nothing"}”`); });
+    TK.big = null; TK.reads = null; await renderTeach();
+    const o2 = $("tkMsg"); if (o2) { o2.className = learned ? "note ok" : "note"; o2.textContent = (learned ? `Saved. The reader learned ${learned} new character example${learned === 1 ? "" : "s"} from this photo. ` : "Saved the photo. The reader already knew these characters well, so it kept its examples. ") + (ok.length ? "Check: " + ok.join("; ") + ". " : "") + (notes.length ? "Note: " + notes.join("; ") + "." : ""); }
+    toast(learned ? `Learned ${learned} new examples` : "Photo saved"); flush();
+  }
+  async function renderTeach() {
+    const el = $("vTeach"), rows = (await DB.all("teach")).sort((a, b) => (a.at < b.at ? 1 : -1)), makers = [...new Set(rows.map((r) => r.maker))];
+    const per = makers.map((m) => { const rs = rows.filter((r) => r.maker === m); return `<tr><td>${esc(m)}</td><td>${rs.length}</td><td>${rs.reduce((n, r) => n + (r.learned || 0), 0)}</td><td>${when(rs[0].at)}</td></tr>`; }).join("");
+    const recent = rows.slice(0, 12).map((r) => `<tr><td>${when(r.at)}</td><td>${esc(r.maker)}</td><td>${esc((r.lines || []).filter(Boolean).join(" / "))}</td><td>${r.learned || 0}</td><td>${sentTag(r)}</td></tr>`).join("");
+    el.innerHTML = `<div class="panel"><h2>Teach the reader</h2>
+      <p class="hint">For each can manufacturer: photograph the printed code on a few cans, type what is printed, and the reader learns that maker's print style. Do it on cans from different dates and printers so the digits vary. The photos are kept for review.</p>
+      <div class="form"><label><span class="label">Can manufacturer (or print source)</span><input type="text" id="tkMaker" list="tkMakers" autocomplete="off" value="${esc(TK.maker)}"><datalist id="tkMakers">${makers.map((m) => `<option value="${esc(m)}">`).join("")}</datalist></label>
+      <label><span class="label">Note (optional)</span><input type="text" id="tkNote" placeholder="e.g. pallet number, printer, shift" value="${esc(TK.note)}"></label></div>
+      <div class="go"><label class="btn primary big" style="display:inline-grid;place-items:center">Take a photo<input id="tkCam" type="file" accept="image/*" capture="environment" hidden></label><label class="btn big" style="display:inline-grid;place-items:center">Choose from gallery<input id="tkGal" type="file" accept="image/*,.jpg,.jpeg,.png,.heic,.webp" hidden></label>${S.lastRead && S.lastRead.sq ? `<button class="btn big" id="tkLast" type="button">Use the last scan</button>` : ""}</div>
+      <p class="hint">“Take a photo” opens the tablet's own camera app, which focuses better up close than the live station camera. Hold it 15–20 cm from the print and tap the print to focus before taking the picture.</p>
+      <div id="tkMsg" class="note"></div><div id="tkWork"></div></div>
+      <div class="panel"><h2>Taught so far on this tablet</h2>${rows.length ? `<div class="tablewrap"><table><thead><tr><th>Manufacturer</th><th>Photos</th><th>New examples</th><th>Latest</th></tr></thead><tbody>${per}</tbody></table></div>
+      <h3>Most recent photos</h3><div class="tablewrap"><table><thead><tr><th>When</th><th>Manufacturer</th><th>Typed</th><th>Learned</th><th>Status</th></tr></thead><tbody>${recent}</tbody></table></div>` : `<p class="hint">Nothing taught yet.</p>`}
+      <p class="hint" id="tkSt"></p><div class="btns"><button class="btn" id="tkPack" type="button">Save review pack</button></div></div>`;
+    $("tkCam").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; $("tkMsg").textContent = ""; loadTeachPhoto(f, "camera"); };
+    $("tkGal").onchange = (e) => { const f = e.target.files[0]; e.target.value = ""; $("tkMsg").textContent = ""; loadTeachPhoto(f, "gallery"); };
+    if ($("tkLast")) $("tkLast").onclick = () => { $("tkMsg").textContent = ""; TK.big = S.lastRead.sq; TK.rot = 0; TK.crop = 100; TK.from = "last scan"; teachRead(); };
+    $("tkPack").onclick = savePack; $("tkSt").textContent = await inboxStatus();
+    if (TK.big) paintTeachWork();
+  }
+
+  /* ---------- feedback: operators and supervisors report what they find, for review before any update ---------- */
+  const FB_TYPES = [["misread", "The reader misread the code"], ["falsefail", "A good can was failed (false FAIL)"], ["falsepass", "A bad can was passed (false PASS)"], ["retake", "Too many RETAKEs"], ["camera", "Camera, focus or light problem"], ["slow", "Slow or awkward to use"], ["screen", "A screen or wording is confusing"], ["idea", "Idea or suggestion"], ["other", "Something else"]];
+  async function renderFeed() {
+    const el = $("vFeed"), rows = (await DB.all("fb")).sort((a, b) => (a.at < b.at ? 1 : -1)), l = S.last;
+    const lastTxt = l ? `Scan #${l.seq} · ${l.res.verdict} · ${new Date(l.at).toLocaleTimeString([], { hour12: false })} · read “${esc((l.a.line1 || "—") + " / " + (l.a.line2 || "—"))}”` : "";
+    const ops = [...new Set([...(S.set.operators || []), S.operator].filter(Boolean))];
+    el.innerHTML = `<div class="panel"><h2>Feedback</h2>
+      <p class="hint">Tell us what works and what doesn't. Every note is kept with the time, who wrote it and, if you choose, the photo of the last scan. It is reviewed before any change is made to the app.</p>
+      <div class="form"><label><span class="label">What is it about?</span><select id="fbType">${FB_TYPES.map(([k, t]) => `<option value="${k}">${esc(t)}</option>`).join("")}</select></label>
+      <label><span class="label">Who is writing?</span><select id="fbWho">${ops.map((o) => `<option${o === S.operator ? " selected" : ""}>${esc(o)}</option>`).join("") || "<option value=''>Not chosen</option>"}</select></label></div>
+      <label class="label" style="display:block;margin-top:14px">What happened, or what would you change?</label><textarea class="fb" id="fbText" placeholder="Describe it in your own words. For a misread, say what the can really says."></textarea>
+      ${l ? `<label class="chkrow"><input type="checkbox" id="fbAttach" checked><span>Attach the photo and reads of the last scan<br><span class="hint">${lastTxt}</span></span></label>` : `<p class="hint">Scan a can first if you want its photo attached to a note.</p>`}
+      <div class="go"><button class="btn primary big" id="fbSave" type="button">Save feedback</button></div><div id="fbMsg" class="note"></div></div>
+      <div class="panel"><h2>Notes on this tablet</h2>${rows.length ? `<div class="tablewrap"><table><thead><tr><th>When</th><th>Who</th><th>About</th><th>Note</th><th>Status</th></tr></thead><tbody>${rows.slice(0, 20).map((r) => `<tr><td>${when(r.at)}</td><td>${esc(r.operator || "—")}</td><td>${esc(r.typeLabel || r.type)}</td><td>${esc(r.text)}${r.photo ? " 📷" : ""}</td><td>${sentTag(r)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="hint">No notes yet.</p>`}
+      <p class="hint" id="fbSt"></p><div class="btns"><button class="btn" id="fbPack" type="button">Save review pack</button>${navigator.canShare ? `<button class="btn" id="fbShare" type="button">Share review pack</button>` : ""}</div></div>`;
+    $("fbSave").onclick = async () => {
+      const text = $("fbText").value.trim(); if (text.length < 3) { toast("Type a few words about what happened."); return; }
+      const type = $("fbType").value, typeLabel = (FB_TYPES.find((x) => x[0] === type) || [])[1] || type; let last = null, photo = null;
+      if ($("fbAttach") && $("fbAttach").checked && S.last) {
+        const L = S.last; last = { seq: L.seq, result: L.res.verdict, reason: L.res.reason, readA: [L.a.line1, L.a.line2], readB: [L.b.line1, L.b.line2], at: new Date(L.at).toISOString(), source: L.source };
+        const ph = await DB.get("photos", L.seq); photo = ph && ph.blob && ph.blob.size ? ph.blob : null;
+      }
+      const rec = { id: "f" + Date.now().toString(36), at: new Date().toISOString(), station: S.set.station, operator: $("fbWho").value || S.operator || "", type, typeLabel, text, customer: S.cust.name, line: S.line, last, photo, sent: null };
+      await DB.put("fb", rec); toast("Thank you. Feedback saved."); await renderFeed(); const m = $("fbMsg"); if (m) { m.className = "note ok"; m.textContent = "Saved. Thank you."; } flush();
+    };
+    $("fbPack").onclick = savePack; if ($("fbShare")) $("fbShare").onclick = sharePack; $("fbSt").textContent = await inboxStatus();
+  }
+  setInterval(() => { flush(); }, 60000); window.addEventListener("online", () => { flush(); });
+
   /* ---------- navigation and wiring ---------- */
   function show(v) {
-    S.view = v; $("vStation").hidden = v !== "station"; $("vSetup").hidden = v !== "setup"; $("vLog").hidden = v !== "log"; $("vTools").hidden = v !== "tools";
-    ["Setup", "Log", "Tools"].forEach((n) => $("b" + n).setAttribute("aria-pressed", String(v === n.toLowerCase())));
+    S.view = v; $("vStation").hidden = v !== "station"; $("vSetup").hidden = v !== "setup"; $("vLog").hidden = v !== "log"; $("vTools").hidden = v !== "tools"; $("vTeach").hidden = v !== "teach"; $("vFeed").hidden = v !== "feed";
+    ["Setup", "Log", "Tools", "Teach", "Feed"].forEach((n) => $("b" + n).setAttribute("aria-pressed", String(v === n.toLowerCase())));
     if (v === "setup") { if (S.prevView !== "setup") S.snap = { cust: S.cust, excise: S.excise, shelf: S.shelf, line: S.line, operator: S.operator, set: { ...S.set, operators: [...S.set.operators] } }; renderSetup(); }
     S.helpFlavour = false; S.prevView = v; paintHow(); if (v !== "station") { const hw = $("how"); if (hw) hw.open = true; }
-    if (v === "log") renderLog(); if (v === "tools") renderTools(); if (v === "station") renderStation();
+    if (v === "log") renderLog(); if (v === "teach") renderTeach(); if (v === "feed") renderFeed(); if (v === "tools") renderTools(); if (v === "station") renderStation();
     window.scrollTo({ top: 0 });
   }
   $("bCam").onclick = () => (camOn() ? stopCamera() : startCamera());
@@ -1681,6 +1923,8 @@ const Pipeline = (() => {
   $("bSetup").onclick = () => show(S.view === "setup" ? "station" : "setup");
   $("bLog").onclick = () => show(S.view === "log" ? "station" : "log");
   $("bTools").onclick = () => show(S.view === "tools" ? "station" : "tools");
+  $("bTeach").onclick = () => show(S.view === "teach" ? "station" : "teach");
+  $("bFeed").onclick = () => show(S.view === "feed" ? "station" : "feed");
   $("bFlavour").onclick = () => { S.changeover = true; S.helpFlavour = true; renderStation(); paintHow(); };
   $("bHelp").onclick = () => { const hw = $("how"); hw.open = true; hw.scrollIntoView({ behavior: "smooth", block: "start" }); };
   document.addEventListener("visibilitychange", () => { if (document.hidden) { if (cam.torch) setTorch(false); } });
