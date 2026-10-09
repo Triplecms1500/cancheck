@@ -170,7 +170,7 @@ textarea { width: 100%; min-height: 110px; font: 500 12px var(--mono); border: 1
         <button class="btn big" id="bShot" type="button">Capture now</button>
         <button class="btn" id="bAuto" type="button" aria-pressed="true">Auto-capture: on</button>
         <button class="btn" id="bTorch" type="button" hidden>Light: off</button>
-        <label class="btn" style="display:inline-grid;place-items:center">Use a photo<input id="fPhoto" type="file" accept="image/*" capture="environment" hidden></label>
+        <label class="btn" style="display:inline-grid;place-items:center">Use a photo<input id="fPhoto" type="file" accept="image/*,.jpg,.jpeg,.png,.heic,.webp" hidden></label>
       </div>
       <div class="tips" id="tips"><b>Good photo:</b> can bottom up, filling the dashed circle, printed lines running left to right, 10-20&nbsp;cm from the lens, even light with no bright reflection across the code. Rest the can on something and let go: the photo is taken after it has been still for 2 seconds.</div>
     </section>
@@ -1477,7 +1477,7 @@ const Pipeline = (() => {
   const isBrave = () => !!(navigator.brave);
   function hideGate() { gate.hidden = true; }
   function showGate(kind) {
-    const photoBtn = `<button class="btn" id="gPic" type="button">Take a photo with the camera app instead</button>`;
+    const photoBtn = `<button class="btn" id="gPic" type="button">Take a photo with the camera app</button><button class="btn" id="gGal" type="button">Choose a photo from the gallery</button>`;
     const later = `<button class="btn" id="gLater" type="button">Not now</button>`;
     let h = "";
     if (kind === "insecure") {
@@ -1510,6 +1510,7 @@ const Pipeline = (() => {
     $("gateBody").innerHTML = h; gate.hidden = false;
     const b = $("gAllow"); if (b) { b.onclick = () => { hideGate(); startCamera(); }; b.focus(); }
     $("gPic").onclick = () => $("gPhoto").click();
+    $("gGal").onclick = () => { hideGate(); $("fPhoto").click(); };
     $("gLater").onclick = hideGate;
   }
   $("gPhoto").onchange = (e) => { const f = e.target.files[0]; if (f) { hideGate(); tryFile(f, true); } e.target.value = ""; };
