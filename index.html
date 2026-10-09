@@ -124,6 +124,10 @@ textarea { width: 100%; min-height: 110px; font: 500 12px var(--mono); border: 1
 .how summary { cursor: pointer; font: 700 16px var(--display); letter-spacing: .12em; text-transform: uppercase; padding: 10px 0; }
 .how ol, .how ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
 .how .cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-top: 10px; }
+.how .tabs { display: grid; gap: 8px; padding-left: 0; list-style: none; margin: 10px 0 16px; }
+.how .tabs li { border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--surface2); }
+.how .tabs li.cur { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); background: var(--surface); }
+.how .now { margin: 6px 0 0; font-weight: 700; }
 .how h5 { margin: 0 0 4px; font: 700 13px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #12181d; color: #fff; padding: 10px 16px; border-radius: 8px; font-weight: 600; z-index: 20; max-width: 90vw; }
 
@@ -183,6 +187,15 @@ textarea { width: 100%; min-height: 110px; font: 500 12px var(--mono); border: 1
 
   <details class="how" id="how">
     <summary>How this works</summary>
+    <p class="now" id="howNow"></p>
+    <h5>The buttons at the top</h5>
+    <ul class="tabs" id="howTabs">
+      <li data-v="flavour"><b>New flavour</b> — tap it whenever a different flavour or product starts on the line. The amber banner “NEW RUN / FLAVOUR” appears and the next can must be checked and PASS before the run carries on. It does not change the customer; use Run setup for that.</li>
+      <li data-v="setup"><b>Run setup</b> — what this tablet is checking right now: the <b>customer</b> (sets the code layout, whether there is an excise line, and the shelf life), the <b>excise code</b> as printed, the <b>canning line</b> (C1 or C2) this tablet sits on, the <b>maximum print age</b> in minutes, and the <b>check timer</b>. Operators <b>tap their name</b> and never type; supervisors add names. Changing the customer, excise code or line starts a new run, so the next can is the first check.</li>
+      <li data-v="log"><b>Audit log</b> — every scan, newest first, with its result and photo. Tap a row to see the photo and what the reader saw. Records are append-only and chained with SHA-256 hashes, so an edited or deleted row shows up when you tap <b>Verify log integrity</b>. <b>Download CSV</b> or <b>CSV + photos (zip)</b> to keep a copy; this proof of concept stores the log on this tablet only.</li>
+      <li data-v="tools"><b>Tools</b> — supervisor area. See what the reader saw on the last can and <b>teach it</b> the true text; <b>try a photo</b> without logging it; change camera and reader settings (auto-capture, stillness time, resolution, strictness); save or clear the empty-nest picture; download or load the examples the reader has learned; run the rules self-test; and erase the test log.</li>
+    </ul>
+    <h5>What happens to each can</h5>
     <ol>
       <li><b>Pick the customer.</b> A supervisor chooses whose cans are running. That sets the code layout, whether there is an excise line, and the shelf life.</li>
       <li><b>Set the can down and let go.</b> The camera watches for movement. When the can has been still for 2 seconds it takes the photo itself. Nobody presses a button or types.</li>
@@ -1521,12 +1534,18 @@ const Pipeline = (() => {
     if (st === "granted") startCamera(); else showGate(st === "denied" ? "denied" : "prompt");
   }
 
+  function paintHow() {
+    const names = { station: "You are on the main screen: place the can, and the result shows on the right.", setup: "You are on Run setup.", log: "You are on the Audit log.", tools: "You are on Tools." };
+    const n = $("howNow"); if (n) n.textContent = names[S.view] || "";
+    document.querySelectorAll("#howTabs li").forEach((li) => li.classList.toggle("cur", li.dataset.v === S.view || (li.dataset.v === "flavour" && S.view === "station" && S.changeover)));
+  }
+
   /* ---------- navigation and wiring ---------- */
   function show(v) {
     S.view = v; $("vStation").hidden = v !== "station"; $("vSetup").hidden = v !== "setup"; $("vLog").hidden = v !== "log"; $("vTools").hidden = v !== "tools";
     ["Setup", "Log", "Tools"].forEach((n) => $("b" + n).setAttribute("aria-pressed", String(v === n.toLowerCase())));
     if (v === "setup") { if (S.prevView !== "setup") S.snap = { cust: S.cust, excise: S.excise, shelf: S.shelf, line: S.line, operator: S.operator, set: { ...S.set, operators: [...S.set.operators] } }; renderSetup(); }
-    S.prevView = v;
+    S.prevView = v; paintHow();
     if (v === "log") renderLog(); if (v === "tools") renderTools(); if (v === "station") renderStation();
     window.scrollTo({ top: 0 });
   }
@@ -1538,7 +1557,7 @@ const Pipeline = (() => {
   $("bSetup").onclick = () => show(S.view === "setup" ? "station" : "setup");
   $("bLog").onclick = () => show(S.view === "log" ? "station" : "log");
   $("bTools").onclick = () => show(S.view === "tools" ? "station" : "tools");
-  $("bFlavour").onclick = () => { S.changeover = true; renderStation(); };
+  $("bFlavour").onclick = () => { S.changeover = true; renderStation(); paintHow(); };
   document.addEventListener("visibilitychange", () => { if (document.hidden) { if (cam.torch) setTorch(false); } });
   setInterval(paintStrip, 1000);
 
