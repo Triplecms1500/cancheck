@@ -11,7 +11,7 @@
   --ink: #12181d; --muted: #566470; --accent: #f2b705; --accent-ink: #12181d; --link: #0b5cad;
   --pass: #0d7a38; --pass-bg: #d9f2e2; --fail: #b3261e; --fail-bg: #fbe0dd; --retake: #8f5400; --retake-bg: #fdecc9;
   --cam: #0c0f12;
-  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", Impact, sans-serif;
+  --display: "Barlow Condensed", "Roboto Condensed", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
   --body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace;
 }
@@ -31,7 +31,7 @@ button, select, input, textarea { font: inherit; color: inherit; }
 .wrap { max-width: 1280px; margin-inline: auto; }
 header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; padding-block: 12px; }
 .brand { min-width: 0; flex: 1 1 260px; }
-.brand h1 { margin: 0; font: 800 26px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; }
+.brand h1 { margin: 0; font: 700 26px/1 var(--display); letter-spacing: .06em; text-transform: uppercase; }
 .brand h1 small { font: 700 12px var(--display); letter-spacing: .12em; background: var(--accent); color: var(--accent-ink); padding: 2px 7px; border-radius: 3px; vertical-align: 4px; margin-left: 8px; }
 .brand .run { font: 500 12.5px var(--mono); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; }
 .brand .sync { font-size: 12px; font-weight: 600; color: var(--muted); margin-top: 1px; }
@@ -66,9 +66,9 @@ header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px
 .tips { margin-top: 12px; font-size: 13.5px; color: var(--muted); border: 1.5px dashed var(--line); border-radius: 8px; padding: 10px 12px; }
 .tips b { color: var(--ink); }
 .verdict { display: flex; gap: 16px; align-items: center; border: 1.5px solid; border-radius: 8px; padding: 12px 16px; }
-.verdict .word { font: 800 clamp(40px, 7vw, 60px)/1 var(--display); letter-spacing: .03em; }
+.verdict .word { font: 700 clamp(40px, 7vw, 60px)/1 var(--display); letter-spacing: .03em; }
 .verdict .why { min-width: 0; }
-.verdict .stop { font: 800 22px var(--display); letter-spacing: .08em; }
+.verdict .stop { font: 700 22px var(--display); letter-spacing: .08em; }
 .verdict .reason { font-weight: 600; color: var(--ink); }
 .verdict .meta { font: 500 12px var(--mono); color: var(--muted); }
 .v-PASS, .v-MANUAL_PASS { color: var(--pass); background: var(--pass-bg); border-color: var(--pass); }
@@ -98,10 +98,11 @@ header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px
 .chip { border: 1.5px solid var(--line); background: var(--surface); border-radius: 999px; padding: 8px 16px; min-height: 44px; cursor: pointer; font-weight: 600; }
 .chip[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
-.panel h2 { margin: 0 0 12px; font: 800 24px var(--display); letter-spacing: .06em; text-transform: uppercase; }
-.panel h3 { margin: 18px 0 6px; font: 800 18px var(--display); letter-spacing: .08em; text-transform: uppercase; }
+.panel h2 { margin: 0 0 12px; font: 700 24px var(--display); letter-spacing: .06em; text-transform: uppercase; }
+.panel h3 { margin: 18px 0 6px; font: 700 18px var(--display); letter-spacing: .08em; text-transform: uppercase; }
 .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
 .form label { display: grid; gap: 4px; min-width: 0; }
+#vTools .form label { align-content: end; }
 .form select, .form input[type=text], .form input:not([type]), .form input[type=number] { border: 1.5px solid var(--line); border-radius: 6px; background: var(--surface2); padding: 10px 12px; min-height: 46px; width: 100%; min-width: 0; }
 .full { grid-column: 1 / -1; }
 .go { margin-top: 14px; display: flex; gap: 10px; flex-wrap: wrap; }
@@ -196,7 +197,7 @@ textarea { width: 100%; min-height: 110px; font: 500 12px var(--mono); border: 1
         <button class="btn" id="bTorch" type="button" hidden>Light: off</button>
         <label class="btn" style="display:inline-grid;place-items:center">Use a photo<input id="fPhoto" type="file" accept="image/*,.jpg,.jpeg,.png,.heic,.webp" hidden></label>
       </div>
-      <div class="tips" id="tips"><b>Good photo:</b> can bottom up, filling the dashed circle, printed lines running left to right, 10-20&nbsp;cm from the lens, even light with no bright reflection across the code. Rest the can on something and let go: the photo is taken after it has been still for 2 seconds.</div>
+      <div class="tips" id="tips"><b>Good photo:</b> can bottom up, filling the dashed circle, printed lines running left to right, 10–20&nbsp;cm from the lens, even light with no bright reflection across the code. Rest the can on something and let go: the camera focuses first, then the photo is taken after the can has been still for 2 seconds. Tap the picture to refocus.</div>
     </section>
     <section class="stack" id="result"></section>
   </main>
@@ -211,7 +212,7 @@ textarea { width: 100%; min-height: 110px; font: 500 12px var(--mono); border: 1
     <h5>What happens to each can</h5>
     <ol>
       <li><b>Pick the customer.</b> A supervisor chooses whose cans are running. That sets the code layout, whether there is an excise line, and the shelf life.</li>
-      <li><b>Set the can down and let go.</b> The camera watches for movement. When the can has been still for 2 seconds it takes the photo itself. Nobody presses a button or types.</li>
+      <li><b>Set the can down and let go.</b> The camera watches for movement. The camera focuses on the printed lines first, then once the can has been still for 2 seconds it takes the photo itself. Nobody presses a button or types.</li>
       <li><b>Read it twice.</b> The page finds the printed lines, straightens them, and reads each character twice with different image settings. If the two reads differ, or a character is doubtful, the result is RETAKE, never a guess.</li>
       <li><b>Check it against the clock and the run.</b> Printed date and time must be real, not in the future and recent. Expiry equals production date plus shelf life. Excise code, plant code and line must match. The batch is only recorded.</li>
       <li><b>Show PASS, FAIL or RETAKE and log it.</b> A FAIL says STOP THE LINE. Every scan goes into a tamper-evident log with its photo, kept on this tablet.</li>
@@ -1119,11 +1120,13 @@ const Pipeline = (() => {
       cam.stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: "environment" }, width: { ideal: w }, height: { ideal: h } } });
       vid.srcObject = cam.stream; await vid.play();
       cam.track = cam.stream.getVideoTracks()[0];
-      try { await cam.track.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); } catch (e) {}
       const caps = cam.track.getCapabilities ? cam.track.getCapabilities() : {};
+      cam.modes = caps.focusMode || [];
+      cam.focusInfo = cam.modes.length ? "autofocus modes: " + cam.modes.join(", ") : "this browser does not report focus controls, so the page only waits for a sharp picture";
+      await goContinuous();
       $("bTorch").hidden = !caps.torch; cam.torch = false; $("bTorch").textContent = "Light: off";
       $("camOff").hidden = true; $("bCam").textContent = "Stop camera";
-      cam.prev = null; cam.moved = false; cam.stillSince = null; cam.moveSince = null;
+      cam.prev = null; cam.moved = false; cam.stillSince = null; cam.moveSince = null; resetFocus();
       clearInterval(cam.timer); cam.timer = setInterval(watch, 120);
       tag(S.phase === "idle" ? "Place can in the circle" : $("camTag").textContent);
       hideGate(); render();
@@ -1149,6 +1152,31 @@ const Pipeline = (() => {
     const out = Math.min(1600, Math.round(side)), c = document.createElement("canvas"); c.width = c.height = out;
     c.getContext("2d").drawImage(src, sx, sy, side, side, 0, 0, out, out); return c;
   }
+  /* ---------- focus: autofocus first, then the stillness count ---------- */
+  const fcv = document.createElement("canvas"); fcv.width = fcv.height = 320; const fcx = fcv.getContext("2d", { willReadFrequently: true });
+  async function applyFocus(c) { try { await cam.track.applyConstraints({ advanced: [c] }); return true; } catch (e) { return false; } }
+  async function goContinuous() {
+    if (!cam.track) return;
+    if (cam.modes && cam.modes.length && !cam.modes.includes("continuous")) return;
+    (await applyFocus({ focusMode: "continuous", pointsOfInterest: [{ x: 0.5, y: 0.5 }] })) || (await applyFocus({ focusMode: "continuous" }));
+  }
+  /** ask the camera to focus again on the middle of the picture, where the printed lines are */
+  async function refocus() {
+    if (!cam.track) return; const m = cam.modes || [];
+    if (m.includes("single-shot")) { if ((await applyFocus({ focusMode: "single-shot", pointsOfInterest: [{ x: 0.5, y: 0.5 }] })) || (await applyFocus({ focusMode: "single-shot" }))) return; }
+    await goContinuous();
+  }
+  function resetFocus() { cam.fstart = null; cam.locked = false; cam.fhist = []; cam.fbest = 0; cam.drop = 0; cam.lockSharp = 0; }
+  /** how crisp the middle of the picture is (gradient energy, scaled for brightness) */
+  function sharpness() {
+    const w = vid.videoWidth, h = vid.videoHeight; if (!w) return 0;
+    const side = Math.min(w, h) * 0.6; fcx.drawImage(vid, (w - side) / 2, (h - side) / 2, side, side, 0, 0, 320, 320);
+    const d = fcx.getImageData(0, 0, 320, 320).data, N = 320, g = new Float32Array(N * N); let mean = 0;
+    for (let i = 0, j = 0; i < g.length; i++, j += 4) { g[i] = 0.299 * d[j] + 0.587 * d[j + 1] + 0.114 * d[j + 2]; mean += g[i]; }
+    mean /= g.length; let e = 0;
+    for (let y = 0; y < N - 1; y++) for (let x = 0; x < N - 1; x++) { const i = y * N + x, gx = g[i + 1] - g[i], gy = g[i + N] - g[i]; e += gx * gx + gy * gy; }
+    return e / ((N - 1) * (N - 1)) / (mean * mean + 25);
+  }
   function frameSig() {
     const w = vid.videoWidth, h = vid.videoHeight; if (!w) return null;
     const side = Math.min(w, h); smx.drawImage(vid, (w - side) / 2, (h - side) / 2, side, side, 0, 0, 48, 48);
@@ -1165,15 +1193,28 @@ const Pipeline = (() => {
     const d = diff(g, prev), now = performance.now(), mov = S.set.motion; cam.d = d;
     $("guide").classList.toggle("ok", S.phase === "idle" && d < mov * 0.7);
     if (S.phase === "busy") return;
-    if (d > mov) { cam.moveSince = cam.moveSince || now; cam.stillSince = null; bar(0); if (S.phase === "done" && now - cam.moveSince > 350) { S.phase = "idle"; cam.moved = true; tag("Moving…"); render(); } else if (S.phase === "idle") { cam.moved = true; tag("Moving…"); } return; }
+    if (d > mov) { if (cam.fstart) { resetFocus(); goContinuous(); } cam.moveSince = cam.moveSince || now; cam.stillSince = null; bar(0); if (S.phase === "done" && now - cam.moveSince > 350) { S.phase = "idle"; cam.moved = true; tag("Moving…"); render(); } else if (S.phase === "idle") { cam.moved = true; tag("Moving…"); } return; }
     cam.moveSince = null;
     if (S.phase === "done") { return; }
     if (!cam.moved) { if (S.phase === "idle") tag(missing().length ? "Set up the run first" : "Place can in the circle"); return; }
+    if (!S.set.auto || missing().length) { cam.stillSince = null; tag(missing().length ? "Set up the run first" : "Still · tap Capture now"); bar(0); return; }
+    /* 1. the can has come to rest: let the camera focus and wait for a sharp picture */
+    const sh = sharpness();
+    if (!cam.fstart) { cam.fstart = now; cam.fhist = []; cam.fbest = 0; cam.locked = false; cam.stillSince = null; refocus(); }
+    cam.fhist.push(sh); if (cam.fhist.length > 12) cam.fhist.shift(); cam.fbest = Math.max(cam.fbest, sh);
+    if (!cam.locked) {
+      const h = cam.fhist.slice(-4), mean = h.reduce((p, c) => p + c, 0) / h.length, range = (Math.max(...h) - Math.min(...h)) / (mean || 1);
+      const settled = now - cam.fstart >= 700 && h.length >= 4 && range < 0.08 && sh >= 0.88 * cam.fbest;
+      if (!settled && now - cam.fstart < 3500) { tag("Focusing…"); bar(0); return; }
+      cam.locked = true; cam.focusOk = settled; cam.lockSharp = mean; cam.stillSince = now;
+    }
+    /* if the picture goes soft while we wait, focus again before counting on */
+    if (sh < cam.lockSharp * 0.7) { if (++cam.drop >= 4) { resetFocus(); tag("Focusing…"); bar(0); return; } } else cam.drop = 0;
+    /* 2. in focus: now count the stillness */
     if (!cam.stillSince) cam.stillSince = now;
     const k = (now - cam.stillSince) / S.set.stillMs;
-    if (!S.set.auto || missing().length) { tag(missing().length ? "Set up the run first" : "Still · tap Capture now"); bar(0); return; }
-    tag("Hold still…"); bar(k);
-    if (k >= 1) { cam.moved = false; cam.stillSince = null; capture("auto").catch((e) => { console.error("capture failed", e); S.phase = "idle"; toast("Capture failed: " + e.message, 5000); }); }
+    tag(cam.focusOk ? "Hold still…" : "Hold still… (focus not confirmed)"); bar(k);
+    if (k >= 1) { cam.moved = false; cam.stillSince = null; resetFocus(); capture("auto").catch((e) => { console.error("capture failed", e); S.phase = "idle"; toast("Capture failed: " + e.message, 5000); }); }
   }
 
   /* ---------- capture -> read -> validate -> record ---------- */
@@ -1197,7 +1238,7 @@ const Pipeline = (() => {
     if (res.verdict === "RETAKE") res.reason = retakeReason(res);
     S.lastRead = { out, sq, at: now };
     await record(res, out, now, source, sq);
-    S.phase = "done"; cam.moved = false; cam.stillSince = null; bar(0);
+    S.phase = "done"; cam.moved = false; cam.stillSince = null; resetFocus(); bar(0);
     tag(S.set.auto && camOn() ? "Lift the can out to re-arm" : "Result below · tap Capture now for the next can"); render();
     if (!S.set.auto || !camOn()) S.phase = "idle";
   }
@@ -1439,13 +1480,14 @@ const Pipeline = (() => {
       <h3>Try a photo without logging it</h3><label class="btn" style="display:inline-grid;place-items:center">Choose a photo<input id="tTry" type="file" accept="image/*" hidden></label>
       <h3>Camera and reader settings</h3><div class="form">
         <label><span class="label">Camera picture size</span><select id="tRes"><option value="720">720p</option><option value="1080">1080p (default)</option><option value="2160">4K (if the tablet allows)</option></select></label>
-        <label><span class="label">Auto-capture stillness, seconds</span><select id="tStill"><option value="1000">1</option><option value="2000">2 (default)</option><option value="3000">3</option><option value="4000">4</option></select></label>
+        <label><span class="label">Auto-capture stillness after focus, seconds</span><select id="tStill"><option value="1000">1</option><option value="2000">2 (default)</option><option value="3000">3</option><option value="4000">4</option></select></label>
         <label><span class="label">Movement sensitivity</span><select id="tMot"><option value="10">Low</option><option value="6">Normal</option><option value="4">High</option></select></label>
         <label><span class="label">Reader strictness</span><select id="tStrict"><option value="strict">Strict (more RETAKEs)</option><option value="normal">Normal</option><option value="relaxed">Relaxed (fewer RETAKEs)</option></select></label>
         <label><span class="label">Use the middle part of the picture, %</span><select id="tCrop"><option value="100">100 (whole circle)</option><option value="85">85</option><option value="70">70</option><option value="55">55 (zoomed in)</option></select></label>
         <label><span class="label">Reading area, % of picture width</span><select id="tDisc"><option value="40">40</option><option value="47">47 (default)</option><option value="55">55</option></select></label>
         <label><span class="label">Station name</span><input type="text" id="tStation" value="${esc(st.station)}"></label>
       </div>
+      <p class="hint" id="tFocus"></p>
       <div class="go"><button class="btn" id="tNest" type="button">Remember the empty nest</button><button class="btn" id="tNestClr" type="button">Forget empty nest</button></div>
       <p class="hint">“Remember the empty nest”: with nothing in front of the camera, tap it once. Auto-capture then ignores a hand or an empty nest instead of logging a RETAKE.</p>
       <h3>What the reader has learned</h3><p class="hint" id="tExN"></p>
@@ -1456,6 +1498,7 @@ const Pipeline = (() => {
     if (lr && lr.out.debug) { const cv = $("tCrop"), src = lr.out.debug.crop; cv.width = src.width; cv.height = src.height; cv.getContext("2d").drawImage(src, 0, 0); }
     const bind = (id, key, num) => { const s = $(id); s.value = String(st[key]); s.onchange = () => { st[key] = num ? +s.value : s.value; saveSettings(); if (key === "res" && camOn()) startCamera(); }; };
     bind("tRes", "res", true); bind("tStill", "stillMs", true); bind("tMot", "motion", true); bind("tStrict", "strictness"); bind("tCrop", "crop", true); bind("tDisc", "disc", true);
+    $("tFocus").textContent = camOn() ? "Camera focus: " + (cam.focusInfo || "unknown") + "." : "Camera focus: start the camera to see what this device supports.";
     $("tStation").onchange = () => { st.station = $("tStation").value.trim() || "Tablet-1"; saveSettings(); paintHeader(); };
     $("tNest").onclick = () => { if (!camOn()) { toast("Start the camera first."); return; } const g = frameSig(); S.nest = g; toast("Empty nest remembered"); };
     $("tNestClr").onclick = () => { S.nest = null; toast("Empty nest forgotten"); };
@@ -1557,7 +1600,7 @@ const Pipeline = (() => {
       <dl>
         <dt>Start camera</dt><dd>Turns the camera on. The first time, the browser asks for permission: tap Allow.</dd>
         <dt>Dashed circle</dt><dd>Hold the can bottom up so the printed lines fill the circle and run left to right, 10–20 cm from the lens, with even light and no glare across the code.</dd>
-        <dt>Auto-capture</dt><dd>When the can has stayed still for 2 seconds the page takes the photo itself. Turn auto-capture off to use <b>Capture now</b> instead.</dd>
+        <dt>Auto-capture</dt><dd>The page first lets the camera focus on the printed lines, then counts 2 seconds of stillness and takes the photo itself. Tap the camera picture to refocus. Turn auto-capture off to use <b>Capture now</b> instead.</dd>
         <dt>Use a photo</dt><dd>Reads a saved picture from the gallery or Files instead of the live camera.</dd>
         <dt>Light</dt><dd>Appears only if this camera has a controllable light.</dd>
         <dt>PASS</dt><dd>Everything matched. The run carries on.</dd>
@@ -1603,7 +1646,7 @@ const Pipeline = (() => {
         <dt>Teach the reader</dt><dd>Type what is really printed on each line (supervisor only), then tap <b>Learn from this can</b>. The reader keeps each character's picture as an example, so it gets better on your printer's dots.</dd>
         <dt>Try a photo without logging it</dt><dd>Reads a saved picture and shows the result without writing to the audit log.</dd>
         <dt>Camera picture size</dt><dd>720p, 1080p (default) or 4K if the tablet allows it.</dd>
-        <dt>Auto-capture stillness</dt><dd>How many seconds the can must be still before the photo is taken. 2 is the default.</dd>
+        <dt>Auto-capture stillness</dt><dd>How many seconds the can must be still, <b>after the camera has focused</b>, before the photo is taken. 2 is the default.</dd>
         <dt>Movement sensitivity</dt><dd>How easily movement resets the stillness timer. Use Low if vibration keeps cancelling a capture.</dd>
         <dt>Reader strictness</dt><dd>Strict gives more RETAKEs, Relaxed gives fewer. Normal is the default.</dd>
         <dt>Middle part of the picture / Reading area</dt><dd>Zoom in on the centre, or change how wide the circle the reader looks at is. Leave at the defaults unless reads keep failing.</dd>
@@ -1633,6 +1676,7 @@ const Pipeline = (() => {
   $("bShot").onclick = () => { if (S.phase === "done") S.phase = "idle"; capture("manual"); };
   $("bAuto").onclick = () => { S.set.auto = !S.set.auto; saveSettings(); renderStation(); };
   $("bTorch").onclick = () => setTorch(!cam.torch);
+  vid.parentElement.addEventListener("click", () => { if (camOn()) { resetFocus(); refocus(); toast("Refocusing…", 1200); } });
   $("fPhoto").onchange = (e) => { const f = e.target.files[0]; if (f) tryFile(f, true); e.target.value = ""; };
   $("bSetup").onclick = () => show(S.view === "setup" ? "station" : "setup");
   $("bLog").onclick = () => show(S.view === "log" ? "station" : "log");
