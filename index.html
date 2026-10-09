@@ -127,6 +127,10 @@ textarea { width: 100%; min-height: 110px; font: 500 12px var(--mono); border: 1
 .how .tabs { display: grid; gap: 8px; padding-left: 0; list-style: none; margin: 10px 0 16px; }
 .how .tabs li { border: 1.5px solid var(--line); border-radius: 8px; padding: 10px 12px; background: var(--surface2); }
 .how .tabs li.cur { border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); background: var(--surface); }
+.how .ctx { border: 1.5px solid var(--accent); border-left-width: 6px; border-radius: 8px; padding: 12px 14px; background: var(--surface); margin: 10px 0 16px; }
+.how .ctx h4 { margin: 0 0 6px; font: 700 22px var(--display); letter-spacing: .08em; text-transform: uppercase; }
+.how .ctx h6 { margin: 12px 0 4px; font: 700 13px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.how .ctx dl { margin: 0; display: grid; gap: 6px; } .how .ctx dt { font-weight: 700; } .how .ctx dd { margin: 0 0 4px; color: var(--muted); }
 .how .now { margin: 6px 0 0; font-weight: 700; }
 .how h5 { margin: 0 0 4px; font: 700 13px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
 .toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #12181d; color: #fff; padding: 10px 16px; border-radius: 8px; font-weight: 600; z-index: 20; max-width: 90vw; }
@@ -152,6 +156,7 @@ textarea { width: 100%; min-height: 110px; font: 500 12px var(--mono); border: 1
       <div class="sync" id="syncLine"></div>
     </div>
     <div class="btns">
+      <button class="btn" id="bHelp" type="button" aria-label="Help for this screen">? Help</button>
       <button class="btn" id="bFlavour" type="button">New flavour</button>
       <button class="btn" id="bSetup" type="button">Run setup</button>
       <button class="btn" id="bLog" type="button">Audit log</button>
@@ -187,14 +192,7 @@ textarea { width: 100%; min-height: 110px; font: 500 12px var(--mono); border: 1
 
   <details class="how" id="how">
     <summary>How this works</summary>
-    <p class="now" id="howNow"></p>
-    <h5>The buttons at the top</h5>
-    <ul class="tabs" id="howTabs">
-      <li data-v="flavour"><b>New flavour</b> — tap it whenever a different flavour or product starts on the line. The amber banner “NEW RUN / FLAVOUR” appears and the next can must be checked and PASS before the run carries on. It does not change the customer; use Run setup for that.</li>
-      <li data-v="setup"><b>Run setup</b> — what this tablet is checking right now: the <b>customer</b> (sets the code layout, whether there is an excise line, and the shelf life), the <b>excise code</b> as printed, the <b>canning line</b> (C1 or C2) this tablet sits on, the <b>maximum print age</b> in minutes, and the <b>check timer</b>. Operators <b>tap their name</b> and never type; supervisors add names. Changing the customer, excise code or line starts a new run, so the next can is the first check.</li>
-      <li data-v="log"><b>Audit log</b> — every scan, newest first, with its result and photo. Tap a row to see the photo and what the reader saw. Records are append-only and chained with SHA-256 hashes, so an edited or deleted row shows up when you tap <b>Verify log integrity</b>. <b>Download CSV</b> or <b>CSV + photos (zip)</b> to keep a copy; this proof of concept stores the log on this tablet only.</li>
-      <li data-v="tools"><b>Tools</b> — supervisor area. See what the reader saw on the last can and <b>teach it</b> the true text; <b>try a photo</b> without logging it; change camera and reader settings (auto-capture, stillness time, resolution, strictness); save or clear the empty-nest picture; download or load the examples the reader has learned; run the rules self-test; and erase the test log.</li>
-    </ul>
+    <div id="howCtx"></div>
     <h5>What happens to each can</h5>
     <ol>
       <li><b>Pick the customer.</b> A supervisor chooses whose cans are running. That sets the code layout, whether there is an excise line, and the shelf life.</li>
@@ -1534,10 +1532,73 @@ const Pipeline = (() => {
     if (st === "granted") startCamera(); else showGate(st === "denied" ? "denied" : "prompt");
   }
 
+  const HELP = {
+    station: { title: "Main screen", html: `
+      <p>This is where cans are checked. The result appears on the right of the camera.</p>
+      <dl>
+        <dt>Start camera</dt><dd>Turns the camera on. The first time, the browser asks for permission: tap Allow.</dd>
+        <dt>Dashed circle</dt><dd>Hold the can bottom up so the printed lines fill the circle and run left to right, 10–20 cm from the lens, with even light and no glare across the code.</dd>
+        <dt>Auto-capture</dt><dd>When the can has stayed still for 2 seconds the page takes the photo itself. Turn auto-capture off to use <b>Capture now</b> instead.</dd>
+        <dt>Use a photo</dt><dd>Reads a saved picture from the gallery or Files instead of the live camera.</dd>
+        <dt>Light</dt><dd>Appears only if this camera has a controllable light.</dd>
+        <dt>PASS</dt><dd>Everything matched. The run carries on.</dd>
+        <dt>FAIL</dt><dd>Something is wrong with the code. <b>STOP THE LINE</b> and tell the supervisor.</dd>
+        <dt>RETAKE</dt><dd>The reader was not sure. Reseat the can, reduce glare and capture again. After 3 RETAKEs in a row the page asks you to check the can by eye and tap <b>Code is correct</b> or <b>Code is wrong</b>; that is logged too.</dd>
+      </dl>` },
+    flavour: { title: "New flavour", html: `
+      <p><b>What it does:</b> tell the tablet that a different flavour or product is starting. The amber banner <b>NEW RUN / FLAVOUR. Check the first can.</b> appears and stays until a can passes.</p>
+      <dl>
+        <dt>When to tap it</dt><dd>Every time the product on the line changes. A check is also due every 30 minutes, and before each new flavour.</dd>
+        <dt>What it does not change</dt><dd>It does not change the customer, excise code, shelf life or line. Do that in <b>Run setup</b>. Saving a change there starts a new run check by itself, so you do not need to tap New flavour as well.</dd>
+        <dt>What happens next</dt><dd>Check the first can of the new run. A PASS clears the banner. A FAIL stops the line. A RETAKE keeps the banner on until the can is read cleanly.</dd>
+        <dt>The log</dt><dd>Tapping it does not write anything to the audit log. Only scans are logged.</dd>
+      </dl>` },
+    setup: { title: "Run setup", html: `
+      <p>What this tablet is checking right now. A supervisor sets it up at the start of a run; operators only tap their name.</p>
+      <dl>
+        <dt>Customer</dt><dd>Chooses the code layout, whether there is an excise line, and the default shelf life. The note under the list says what that customer's code looks like.</dd>
+        <dt>Excise code, as printed</dt><dd>Only shown for customers that print one. The code on line 2 of the can must equal this (for example 54SL555).</dd>
+        <dt>Shelf life, months</dt><dd>Only shown for customers with an expiry date. Must be 1 to 60. The expiry on the can must equal the production date plus this.</dd>
+        <dt>Canning line this tablet sits on</dt><dd>Choose C1 or C2. A can printed with the other line's code then FAILS. “Not checked” turns the line check off.</dd>
+        <dt>Max print age, minutes</dt><dd>The printed time must not be in the future and no older than this. 120 is the default. 0 turns the age check off.</dd>
+        <dt>Check timer</dt><dd>“Every 30 minutes” is the real setting. “Every 45 seconds” is a demo speed so you can show the reminder quickly.</dd>
+        <dt>Operator · tap your name</dt><dd>Operators tap their name and never type. A supervisor can add a name with <b>Add name</b>.</dd>
+        <dt>Done / Cancel</dt><dd><b>Done</b> checks the entries, saves them and returns to the main screen. If the customer, excise code, shelf life or line changed, a new run starts and the next can is the first check. <b>Cancel</b> throws the changes away.</dd>
+      </dl>
+      <p class="hint">Batch codes are read and logged but never compared.</p>` },
+    log: { title: "Audit log", html: `
+      <p>A record of every scan on this tablet, newest first. Nobody can quietly change it.</p>
+      <dl>
+        <dt>Each row</dt><dd>Number, time, result (PASS / FAIL / RETAKE), customer, the two printed lines as read, operator, and how it was captured (auto, manual or photo).</dd>
+        <dt>Tap a row</dt><dd>Shows the photo that was taken, the reason for the result, and what each of the two reads saw.</dd>
+        <dt>Hash column</dt><dd>Each record's fingerprint covers the record before it and its photo. If a row is edited or removed, the chain breaks.</dd>
+        <dt>Verify log integrity</dt><dd>Re-checks the whole chain. It says “Log intact” or names the first record that was altered.</dd>
+        <dt>Download CSV</dt><dd>One spreadsheet-ready file of all records.</dd>
+        <dt>Download CSV + photos (zip)</dt><dd>The CSV and every photo in one file, named by record number, time and result.</dd>
+      </dl>
+      <p class="hint">In this proof of concept the log stays in this browser on this tablet. Export it before clearing browser data. The full system syncs it to SharePoint and keeps it for at least a year.</p>` },
+    tools: { title: "Tools", html: `
+      <p>Supervisor area: see how the reader works, teach it, and change how the camera behaves.</p>
+      <dl>
+        <dt>Last can · what the reader saw</dt><dd>Shows the picture and each line the reader found, cut into character cells for both reads, with doubtful characters underlined.</dd>
+        <dt>Teach the reader</dt><dd>Type what is really printed on each line (supervisor only), then tap <b>Learn from this can</b>. The reader keeps each character's picture as an example, so it gets better on your printer's dots.</dd>
+        <dt>Try a photo without logging it</dt><dd>Reads a saved picture and shows the result without writing to the audit log.</dd>
+        <dt>Camera picture size</dt><dd>720p, 1080p (default) or 4K if the tablet allows it.</dd>
+        <dt>Auto-capture stillness</dt><dd>How many seconds the can must be still before the photo is taken. 2 is the default.</dd>
+        <dt>Movement sensitivity</dt><dd>How easily movement resets the stillness timer. Use Low if vibration keeps cancelling a capture.</dd>
+        <dt>Reader strictness</dt><dd>Strict gives more RETAKEs, Relaxed gives fewer. Normal is the default.</dd>
+        <dt>Middle part of the picture / Reading area</dt><dd>Zoom in on the centre, or change how wide the circle the reader looks at is. Leave at the defaults unless reads keep failing.</dd>
+        <dt>Station name</dt><dd>Shown in the header and recorded with every scan.</dd>
+        <dt>Remember the empty nest</dt><dd>With nothing in front of the camera, tap it once. Auto-capture then ignores an empty nest or a passing hand instead of logging a RETAKE.</dd>
+        <dt>What the reader has learned</dt><dd>Shows how many character examples are in use. Download them to keep, load them onto another tablet, or go back to the built-in set.</dd>
+        <dt>Rules self-test</dt><dd>Runs 50 simulated cans per case through the checking rules, not the camera. A bad can must never come back PASS.</dd>
+        <dt>Erase the whole log</dt><dd>Test runs only. Deletes every scan and photo on this tablet, so download the zip first.</dd>
+      </dl>` }
+  };
   function paintHow() {
-    const names = { station: "You are on the main screen: place the can, and the result shows on the right.", setup: "You are on Run setup.", log: "You are on the Audit log.", tools: "You are on Tools." };
-    const n = $("howNow"); if (n) n.textContent = names[S.view] || "";
-    document.querySelectorAll("#howTabs li").forEach((li) => li.classList.toggle("cur", li.dataset.v === S.view || (li.dataset.v === "flavour" && S.view === "station" && S.changeover)));
+    const key = S.helpFlavour && S.view === "station" ? "flavour" : S.view, h = HELP[key], c = $("howCtx");
+    if (!c || !h) return;
+    c.innerHTML = `<div class="ctx"><h4>You are on: ${esc(h.title)}</h4>${h.html}</div>`;
   }
 
   /* ---------- navigation and wiring ---------- */
@@ -1545,7 +1606,7 @@ const Pipeline = (() => {
     S.view = v; $("vStation").hidden = v !== "station"; $("vSetup").hidden = v !== "setup"; $("vLog").hidden = v !== "log"; $("vTools").hidden = v !== "tools";
     ["Setup", "Log", "Tools"].forEach((n) => $("b" + n).setAttribute("aria-pressed", String(v === n.toLowerCase())));
     if (v === "setup") { if (S.prevView !== "setup") S.snap = { cust: S.cust, excise: S.excise, shelf: S.shelf, line: S.line, operator: S.operator, set: { ...S.set, operators: [...S.set.operators] } }; renderSetup(); }
-    S.prevView = v; paintHow();
+    S.helpFlavour = false; S.prevView = v; paintHow(); if (v !== "station") { const hw = $("how"); if (hw) hw.open = true; }
     if (v === "log") renderLog(); if (v === "tools") renderTools(); if (v === "station") renderStation();
     window.scrollTo({ top: 0 });
   }
@@ -1557,7 +1618,8 @@ const Pipeline = (() => {
   $("bSetup").onclick = () => show(S.view === "setup" ? "station" : "setup");
   $("bLog").onclick = () => show(S.view === "log" ? "station" : "log");
   $("bTools").onclick = () => show(S.view === "tools" ? "station" : "tools");
-  $("bFlavour").onclick = () => { S.changeover = true; renderStation(); paintHow(); };
+  $("bFlavour").onclick = () => { S.changeover = true; S.helpFlavour = true; renderStation(); paintHow(); };
+  $("bHelp").onclick = () => { const hw = $("how"); hw.open = true; hw.scrollIntoView({ behavior: "smooth", block: "start" }); };
   document.addEventListener("visibilitychange", () => { if (document.hidden) { if (cam.torch) setTorch(false); } });
   setInterval(paintStrip, 1000);
 
