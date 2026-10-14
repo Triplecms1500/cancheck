@@ -200,6 +200,7 @@ textarea { width: 100%; min-height: 110px; font: 500 12px var(--mono); border: 1
       <div class="camctl">
         <button class="btn primary big" id="bCam" type="button">Start camera</button>
         <button class="btn big" id="bShot" type="button">Capture now</button>
+        <button class="btn big" id="bFocus" type="button">Focus</button>
         <button class="btn" id="bAuto" type="button" aria-pressed="true">Auto-capture: on</button>
         <button class="btn" id="bTorch" type="button" hidden>Light: off</button>
         <label class="btn" style="display:inline-grid;place-items:center">Use a photo<input id="fPhoto" type="file" accept="image/*,.jpg,.jpeg,.png,.heic,.webp" hidden></label>
@@ -1196,17 +1197,18 @@ const Pipeline = (() => {
   const diff = (a, b) => { let s = 0; for (let i = 0; i < a.length; i++) s += Math.abs(a[i] - b[i]); return s / a.length; };
 
   function watch() {
+    const wtag = (m) => { if (cam.hold && performance.now() < cam.hold) return; tag(m); };
     if (!camOn() || S.view !== "station") return;
     const g = frameSig(); if (!g) return;
     const prev = cam.prev; cam.prev = g; if (!prev) return;
     const d = diff(g, prev), now = performance.now(), mov = S.set.motion; cam.d = d;
     $("guide").classList.toggle("ok", S.phase === "idle" && d < mov * 0.7);
     if (S.phase === "busy") return;
-    if (d > mov) { if (cam.fstart) { resetFocus(); goContinuous(); } cam.moveSince = cam.moveSince || now; cam.stillSince = null; bar(0); if (S.phase === "done" && now - cam.moveSince > 350) { S.phase = "idle"; cam.moved = true; tag("Moving…"); render(); } else if (S.phase === "idle") { cam.moved = true; tag("Moving…"); } return; }
+    if (d > mov) { if (!cam.focusing) cam.hold = 0; if (cam.fstart) { resetFocus(); goContinuous(); } cam.moveSince = cam.moveSince || now; cam.stillSince = null; bar(0); if (S.phase === "done" && now - cam.moveSince > 350) { S.phase = "idle"; cam.moved = true; wtag("Moving…"); render(); } else if (S.phase === "idle") { cam.moved = true; wtag("Moving…"); } return; }
     cam.moveSince = null;
     if (S.phase === "done") { return; }
-    if (!cam.moved) { if (S.phase === "idle") tag(missing().length ? "Set up the run first" : "Place can in the circle"); return; }
-    if (!S.set.auto || missing().length) { cam.stillSince = null; tag(missing().length ? "Set up the run first" : "Still · tap Capture now"); bar(0); return; }
+    if (!cam.moved) { if (S.phase === "idle") wtag(missing().length ? "Set up the run first" : "Place can in the circle"); return; }
+    if (!S.set.auto || missing().length) { cam.stillSince = null; wtag(missing().length ? "Set up the run first" : "Still · tap Capture now"); bar(0); return; }
     /* 1. the can has come to rest: let the camera focus and wait for a sharp picture */
     const sh = sharpness();
     if (!cam.fstart) { cam.fstart = now; cam.fhist = []; cam.fbest = 0; cam.locked = false; cam.stillSince = null; refocus(); }
@@ -1214,18 +1216,38 @@ const Pipeline = (() => {
     if (!cam.locked) {
       const h = cam.fhist.slice(-4), mean = h.reduce((p, c) => p + c, 0) / h.length, range = (Math.max(...h) - Math.min(...h)) / (mean || 1);
       const settled = now - cam.fstart >= 700 && h.length >= 4 && range < 0.08 && sh >= 0.88 * cam.fbest;
-      if (!settled && now - cam.fstart < 3500) { tag("Focusing…"); bar(0); return; }
+      if (!settled && now - cam.fstart < 3500) { wtag("Focusing…"); bar(0); return; }
       cam.locked = true; cam.focusOk = settled; cam.lockSharp = mean; cam.stillSince = now;
     }
     /* if the picture goes soft while we wait, focus again before counting on */
-    if (sh < cam.lockSharp * 0.7) { if (++cam.drop >= 4) { resetFocus(); tag("Focusing…"); bar(0); return; } } else cam.drop = 0;
+    if (sh < cam.lockSharp * 0.7) { if (++cam.drop >= 4) { resetFocus(); wtag("Focusing…"); bar(0); return; } } else cam.drop = 0;
     /* 2. in focus: now count the stillness */
     if (!cam.stillSince) cam.stillSince = now;
     const k = (now - cam.stillSince) / S.set.stillMs;
-    tag(cam.focusOk ? "Hold still…" : "Hold still… (focus not confirmed)"); bar(k);
+    wtag(cam.focusOk ? "Hold still…" : "Hold still… (focus not confirmed)"); bar(k);
     if (k >= 1) { cam.moved = false; cam.stillSince = null; resetFocus(); capture("auto").catch((e) => { console.error("capture failed", e); S.phase = "idle"; toast("Capture failed: " + e.message, 5000); }); }
   }
 
+  /** the Focus button (and a tap on the picture): focus on the middle, show whether the picture went sharp, then the person takes the photo */
+  async function manualFocus() {
+    if (!camOn() || !vid.videoWidth) { toast("Start the camera first."); return; }
+    if (S.phase === "busy" || cam.focusing) return;
+    cam.focusing = true; const btn = $("bFocus"); if (btn) { btn.disabled = true; btn.textContent = "Focusing…"; }
+    resetFocus(); const t0 = performance.now(); cam.hold = t0 + 10000; tag("Focusing…"); bar(0);
+    await refocus();
+    const hist = []; let best = 0, ok = false;
+    while (camOn() && performance.now() - t0 < 3500) {
+      await new Promise((r) => setTimeout(r, 150));
+      const sh = sharpness(); hist.push(sh); if (hist.length > 12) hist.shift(); best = Math.max(best, sh); bar((performance.now() - t0) / 3500);
+      const h = hist.slice(-4), mean = h.reduce((p, c) => p + c, 0) / h.length, range = (Math.max(...h) - Math.min(...h)) / (mean || 1);
+      if (performance.now() - t0 >= 700 && h.length >= 4 && range < 0.08 && sh >= 0.88 * best) { ok = true; break; }
+    }
+    bar(0); cam.focusing = false; cam.hold = performance.now() + 6000;
+    if (btn) { btn.disabled = false; btn.textContent = "Focus"; }
+    if (!camOn()) return;
+    tag(ok ? "In focus · tap Capture now" : "Focus not confirmed · hold 15–20 cm away, tap Focus again");
+    toast(ok ? "In focus" : "Focus not confirmed. Hold the can 15–20 cm away and tap Focus again.", ok ? 1600 : 4000);
+  }
   /* ---------- capture -> read -> validate -> record ---------- */
   function looksEmpty(g) { return S.nest && g && diff(g, S.nest) < 5; }
   async function capture(source, fromCanvas) {
@@ -1238,7 +1260,7 @@ const Pipeline = (() => {
       if (source === "auto" && looksEmpty(cam.prev)) { tag("Nest is empty"); return; }
       sq = grabSquare(vid, vid.videoWidth, vid.videoHeight);
     }
-    S.phase = "busy"; bar(1); tag("Photo taken · reading…"); render(); await tick();
+    cam.hold = 0; S.phase = "busy"; bar(1); tag("Photo taken · reading…"); render(); await tick();
     let out;
     try { out = await Pipeline.read(sq, profile(), S.set, (m) => { tag(m); }); }
     catch (e) { console.error(e); out = { a: { legible: false, line1: "", line2: "", uncertain: [], notes: "Reader error: " + e.message }, b: { legible: false, line1: "", line2: "", uncertain: [], notes: "Reader error" }, rot: 0, ms: 0, debug: null }; }
@@ -1638,6 +1660,7 @@ const Pipeline = (() => {
         <dt>Start camera</dt><dd>Turns the camera on. The first time, the browser asks for permission: tap Allow.</dd>
         <dt>Dashed circle</dt><dd>Hold the can bottom up so the printed lines fill the circle and run left to right, 10–20 cm from the lens, with even light and no glare across the code.</dd>
         <dt>Auto-capture</dt><dd>The page first lets the camera focus on the printed lines, then counts 2 seconds of stillness and takes the photo itself. Tap the camera picture to refocus. Turn auto-capture off to use <b>Capture now</b> instead.</dd>
+        <dt>Focus</dt><dd>Asks the camera to focus on the printed lines and tells you whether the picture went sharp. Use it before <b>Capture now</b>, or whenever the print looks soft. Tapping the camera picture does the same. If it says focus is not confirmed, hold the can 15–20 cm from the camera and tap Focus again.</dd>
         <dt>Use a photo</dt><dd>Reads a saved picture from the gallery or Files instead of the live camera.</dd>
         <dt>Light</dt><dd>Appears only if this camera has a controllable light.</dd>
         <dt>PASS</dt><dd>Everything matched. The run carries on.</dd>
@@ -1938,7 +1961,8 @@ const Pipeline = (() => {
   $("bShot").onclick = () => { if (S.phase === "done") S.phase = "idle"; capture("manual"); };
   $("bAuto").onclick = () => { S.set.auto = !S.set.auto; saveSettings(); renderStation(); };
   $("bTorch").onclick = () => setTorch(!cam.torch);
-  vid.parentElement.addEventListener("click", () => { if (camOn()) { resetFocus(); refocus(); toast("Refocusing…", 1200); } });
+  vid.parentElement.addEventListener("click", () => { if (camOn()) manualFocus(); });
+  $("bFocus").onclick = manualFocus;
   $("fPhoto").onchange = (e) => { const f = e.target.files[0]; if (f) tryFile(f, true); e.target.value = ""; };
   $("bSetup").onclick = () => show(S.view === "setup" ? "station" : "setup");
   $("bLog").onclick = () => show(S.view === "log" ? "station" : "log");
